@@ -1,0 +1,824 @@
+<html lang="en-US">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reactor X2 - UGV Beast Control</title>
+  <script src="./js-yaml.min.js"></script>
+  <script src="./socket.io.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #0c0e10;
+      --panel: #15181c;
+      --panel-alt: #1b1f24;
+      --border: #262b31;
+      --text: #e4e7eb;
+      --text-dim: #757c87;
+      --accent: #4fd1c5;
+      --warn: #f5a623;
+      --danger: #f0625a;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      overflow: hidden;
+    }
+
+    .reactor-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: var(--bg);
+    }
+
+    .main-title {
+      text-align: center;
+      color: var(--accent);
+      margin: 10px 0;
+      font-size: 20px;
+      font-weight: 300;
+      letter-spacing: 3px;
+    }
+
+    .back-link {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      color: var(--text-dim);
+      font-size: 11px;
+      text-decoration: none;
+    }
+    .back-link:hover { color: var(--accent); }
+
+    .content-area {
+      display: flex;
+      flex: 1;
+      gap: 14px;
+      padding: 14px;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .controls-left {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      padding-right: 6px;
+      min-width: 0;
+      width: 230px;
+      flex-shrink: 0;
+    }
+
+    .controls-left::-webkit-scrollbar { width: 4px; }
+    .controls-left::-webkit-scrollbar-track { background: transparent; }
+    .controls-left::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .video-section {
+      display: flex;
+      gap: 14px;
+      flex: 1;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .video-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .video-container {
+      position: relative;
+      flex: 1;
+      background: #000;
+      overflow: hidden;
+    }
+
+    .video-container img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+    }
+
+    .video-overlay {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(12, 14, 16, 0.85);
+      color: var(--accent);
+      padding: 10px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      line-height: 1.6;
+      z-index: 10;
+      border: 1px solid var(--border);
+    }
+
+    .stat-row { margin: 3px 0; color: var(--text-dim); }
+    .stat-row span { color: var(--accent); font-weight: bold; }
+
+    .video-panel-label {
+      background: var(--panel);
+      color: var(--text-dim);
+      padding: 8px;
+      font-size: 11px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      letter-spacing: 1px;
+    }
+
+    .control-pad, .control-panel, .presets-panel, .recording-panel, .reference-panel, .light-panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .control-pad { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+    .pad-title, .panel-title {
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .panel-title { margin-bottom: 10px; text-align: center; }
+
+    .wasd-layout { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+    .wasd-row { display: flex; gap: 4px; }
+
+    .pad-btn {
+      width: 36px;
+      height: 36px;
+      background: var(--panel-alt);
+      color: var(--accent);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      user-select: none;
+    }
+
+    .pad-btn:hover { background: var(--accent); color: #04211e; border-color: var(--accent); }
+    .pad-btn:active { transform: scale(0.95); }
+    .pad-btn.pad-active { background: var(--accent); color: #04211e; border-color: var(--accent); }
+
+    .pad-info { font-size: 9px; color: var(--text-dim); text-align: center; }
+
+    .slider-group { display: flex; flex-direction: column; }
+    .slider-group label { color: var(--text-dim); font-size: 10px; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .slider-group label span { color: var(--accent); }
+
+    .slider {
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--panel-alt);
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+      cursor: pointer;
+    }
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+    .slider::-moz-range-thumb {
+      width: 13px; height: 13px; border-radius: 50%;
+      background: var(--accent); cursor: pointer; border: none;
+    }
+
+    .light-btn {
+      width: 100%;
+      padding: 10px;
+      background: var(--panel-alt);
+      color: var(--text-dim);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .light-btn:hover { border-color: var(--warn); }
+    .light-btn.on { background: var(--warn); color: #241900; border-color: var(--warn); }
+
+    .presets-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px; }
+
+    .preset-btn {
+      background: var(--panel-alt); color: var(--accent); border: 1px solid var(--border);
+      padding: 7px 4px; border-radius: 4px; font-size: 10px; font-weight: 600;
+      cursor: pointer; transition: border-color 0.15s; text-align: center;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .preset-btn:hover { border-color: var(--accent); }
+    .preset-btn.preset-active { background: var(--accent); color: #04211e; border-color: var(--accent); }
+
+    .custom-input {
+      background: var(--panel-alt); color: var(--text); border: 1px solid var(--border);
+      padding: 5px 6px; border-radius: 4px; font-size: 10px; font-family: monospace;
+    }
+    .custom-input::placeholder { color: var(--text-dim); }
+
+    .small-btn {
+      background: var(--accent); color: #04211e; border: none; padding: 5px 8px;
+      border-radius: 4px; font-size: 9px; font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+    }
+    .small-btn:hover { opacity: 0.85; }
+
+    .record-controls { display: flex; gap: 6px; }
+    .record-btn, .screenshot-btn {
+      flex: 1; padding: 9px 6px; border: 1px solid var(--border); background: var(--panel-alt); color: var(--danger);
+      border-radius: 4px; font-weight: 700; font-size: 10px; cursor: pointer; transition: border-color 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .record-btn:hover, .screenshot-btn:hover { border-color: var(--danger); }
+    .record-btn.recording { background: var(--danger); color: #2a0704; border-color: var(--danger); animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+    .record-dot { display: inline-block; width: 6px; height: 6px; background: var(--danger); border-radius: 50%; }
+    .record-btn.recording .record-dot { background: #2a0704; }
+
+    .recording-item {
+      background: var(--panel-alt); padding: 5px 6px; border-radius: 4px; margin-bottom: 4px;
+      display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: var(--text-dim);
+    }
+    .recording-item-btn {
+      background: var(--accent); color: #04211e; border: none; padding: 2px 5px;
+      border-radius: 3px; font-size: 8px; cursor: pointer; margin-left: 4px; text-decoration: none;
+    }
+
+    .upload-btn {
+      width: 100%; padding: 10px; background: var(--panel-alt); color: var(--accent); border: 1px dashed var(--border);
+      border-radius: 4px; font-weight: 600; font-size: 11px; cursor: pointer; transition: border-color 0.15s;
+    }
+    .upload-btn:hover { border-color: var(--accent); }
+    #ref-status { color: var(--text-dim); font-size: 9px; margin-top: 6px; line-height: 1.4; }
+
+    .bottom-panel { background: var(--bg); border-top: 1px solid var(--border); padding: 12px 14px; display: flex; gap: 12px; align-items: flex-end; }
+    .prompt-section { flex: 1; }
+    .prompt-label { display: block; color: var(--text-dim); font-size: 11px; margin-bottom: 6px; font-weight: 600; letter-spacing: 0.5px; }
+    .prompt-input {
+      width: 100%; background: var(--panel-alt); color: var(--text); border: 1px solid var(--border);
+      padding: 8px; border-radius: 4px; font-size: 11px; font-family: monospace; resize: none;
+    }
+    .prompt-input::placeholder { color: var(--text-dim); }
+    .apply-btn {
+      background: var(--accent); color: #04211e; border: none; padding: 8px 18px;
+      border-radius: 4px; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+    }
+    .apply-btn:hover { opacity: 0.85; }
+    .status-section {
+      background: var(--panel); padding: 8px 12px; border-radius: 4px; font-size: 10px;
+      font-family: monospace; color: var(--text-dim); white-space: nowrap; border: 1px solid var(--border);
+    }
+
+    @media (max-width: 1024px) {
+      .content-area { flex-direction: column; }
+      .controls-left { width: 100%; flex-direction: row; flex-wrap: wrap; }
+      .video-section { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="reactor-container">
+    <a class="back-link" href="./">&lt; Index Page</a>
+    <h1 class="main-title">Reactor X2</h1>
+
+    <div class="content-area">
+      <div class="controls-left">
+
+        <div class="control-pad wasd-pad">
+          <div class="pad-title">Rover</div>
+          <div class="wasd-layout">
+            <button class="pad-btn pad-up" data-cmd="forward" title="W">&#9650;</button>
+            <div class="wasd-row">
+              <button class="pad-btn pad-left" data-cmd="left" title="A">&#9668;</button>
+              <button class="pad-btn pad-down" data-cmd="backward" title="S">&#9660;</button>
+              <button class="pad-btn pad-right" data-cmd="right" title="D">&#9658;</button>
+            </div>
+          </div>
+          <div class="pad-info">WASD / Click</div>
+        </div>
+
+        <div class="light-panel">
+          <div class="panel-title">Lights</div>
+          <button id="light-toggle-btn" class="light-btn">OFF</button>
+        </div>
+
+        <div class="control-panel speed-panel">
+          <div class="panel-title">Speed</div>
+          <div class="slider-group">
+            <label for="rover-speed">Rover: <span id="rover-speed-val">50</span>%</label>
+            <input type="range" id="rover-speed" min="0" max="100" value="50" class="slider">
+          </div>
+        </div>
+
+        <div class="presets-panel">
+          <div class="panel-title">Presets</div>
+          <div class="presets-grid">
+            <button class="preset-btn" data-prompt="racing on a desert track with sand dunes" title="F1">Desert</button>
+            <button class="preset-btn" data-prompt="neon cyberpunk city with glowing lights" title="F2">Neon</button>
+            <button class="preset-btn" data-prompt="cartoon animation style with bright colors" title="F3">Cartoon</button>
+            <button class="preset-btn" data-prompt="black and white sketch art style" title="F4">Sketch</button>
+            <button class="preset-btn" data-prompt="outer space with stars and planets" title="F5">Space</button>
+            <button class="preset-btn" data-prompt="underwater ocean environment with coral" title="F6">Ocean</button>
+            <button class="preset-btn" data-prompt="dense forest with trees and nature" title="F7">Forest</button>
+            <button class="preset-btn" data-prompt="snowy winter landscape with snow" title="F8">Snow</button>
+          </div>
+          <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+            <div style="color: var(--text-dim); font-size: 10px; margin-bottom: 8px;">Custom</div>
+            <div style="display: flex; gap: 5px;">
+              <input type="text" id="custom-preset-name" placeholder="Name" class="custom-input" style="flex: 1;">
+              <button id="save-custom-preset" class="small-btn">Save</button>
+            </div>
+            <div id="custom-presets" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px;"></div>
+          </div>
+        </div>
+
+        <div class="recording-panel">
+          <div class="panel-title" style="color: var(--danger);">Recording</div>
+          <div class="record-controls">
+            <button id="record-btn" class="record-btn"><span class="record-dot"></span> REC</button>
+            <button id="screenshot-btn" class="screenshot-btn">SNAP</button>
+          </div>
+          <div id="recording-info" style="display: none; margin-top: 10px; padding: 8px; background: var(--panel-alt); border-radius: 4px;">
+            <div id="recording-time" style="color: var(--text); font-size: 12px; font-weight: bold;">00:00:00</div>
+            <button id="stop-record-btn" class="small-btn" style="width: 100%; margin-top: 8px;">Stop</button>
+          </div>
+          <div id="recordings-list" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border);">
+            <div style="color: var(--text-dim); font-size: 10px; margin-bottom: 8px;">Recordings (this session only)</div>
+            <div id="recordings" style="max-height: 100px; overflow-y: auto;"></div>
+          </div>
+        </div>
+
+        <div class="reference-panel">
+          <div class="panel-title">Reference</div>
+          <div style="text-align: center;">
+            <input type="file" id="reference-input" accept="image/*" style="display: none;">
+            <button id="upload-ref-btn" class="upload-btn">Choose Image</button>
+            <div id="reference-preview" style="display: none; margin-top: 8px;">
+              <img id="ref-image" style="width: 100%; max-height: 80px; border-radius: 4px; margin-bottom: 6px;">
+              <div style="display: flex; gap: 4px;">
+                <button id="apply-ref-btn" class="small-btn" style="flex: 1;">Save</button>
+                <button id="clear-ref-btn" class="small-btn" style="flex: 1;">Clear</button>
+              </div>
+            </div>
+            <div id="ref-status"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="video-section">
+        <div class="video-panel">
+          <div class="video-container">
+            <img id="liveVideo">
+            <div class="video-overlay">
+              <div class="stat-row">CPU: <span id="stat-cpu">--</span>%</div>
+              <div class="stat-row">RAM: <span id="stat-ram">--</span>%</div>
+              <div class="stat-row">Battery: <span id="stat-battery">--</span>V</div>
+              <div class="stat-row">FPS: <span id="stat-fps">--</span></div>
+              <div class="stat-row">Temp: <span id="stat-temp">--</span>&#176;C</div>
+              <div class="stat-row">RSSI: <span id="stat-rssi">--</span>dBm</div>
+            </div>
+          </div>
+          <div class="video-panel-label">Live Camera Feed</div>
+        </div>
+
+        <div class="video-panel">
+          <div class="video-container">
+            <img id="reactorVideo">
+          </div>
+          <div class="video-panel-label">Reactor X2 Output</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-panel">
+      <div class="prompt-section">
+        <label class="prompt-label">Reactor Prompt:</label>
+        <div style="display: flex; gap: 8px;">
+          <textarea
+            id="prompt-input"
+            placeholder="Describe the effect you want (e.g., 'racing on a desert track')"
+            class="prompt-input"
+            rows="2"
+          >no effect</textarea>
+          <button id="apply-prompt-btn" class="apply-btn">Apply</button>
+        </div>
+      </div>
+      <div class="status-section">
+        <span id="status-text">Status: connecting...</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============ CONFIG (real values from the rover, not guessed) ============
+    var cmd_movition_ctrl, max_speed, slow_speed;
+    var fb_cpu_load, fb_cpu_temp, fb_ram_usage, fb_wifi_rssi, fb_base_voltage, fb_video_fps, fb_led_mode, fb_base_light;
+    var code_led_off, code_led_ton, code_base_off, code_base_on;
+
+    fetch('/config')
+      .then(function (r) { return r.text(); })
+      .then(function (yamlText) {
+        var y = jsyaml.load(yamlText);
+        cmd_movition_ctrl = y.cmd_config.cmd_movition_ctrl;
+        max_speed = y.args_config.max_speed;
+        slow_speed = y.args_config.slow_speed;
+        fb_cpu_load = y.fb.cpu_load;
+        fb_cpu_temp = y.fb.cpu_temp;
+        fb_ram_usage = y.fb.ram_usage;
+        fb_wifi_rssi = y.fb.wifi_rssi;
+        fb_base_voltage = y.fb.base_voltage;
+        fb_video_fps = y.fb.video_fps;
+        fb_led_mode = y.fb.led_mode;
+        fb_base_light = y.fb.base_light;
+        code_led_off = y.code.led_off;
+        code_led_ton = y.code.led_ton;
+        code_base_off = y.code.base_of;
+        code_base_on = y.code.base_on;
+      })
+      .catch(function (e) { console.error('Failed to load /config:', e); });
+
+    function isTyping(e) {
+      var tag = (e.target.tagName || '').toLowerCase();
+      return tag === 'textarea' || tag === 'input';
+    }
+
+    // ============ VIDEO STREAMS (MJPEG needs <img>, not <video>) ============
+    document.getElementById('liveVideo').src = '/video_feed';
+    document.getElementById('reactorVideo').src = '/video_feed_reactor';
+
+    // ============ REAL ROVER CONTROL (same /json socket + T:1 command the existing UI uses) ============
+    var socketJson = io('http://' + location.host + '/json');
+    var speed_rate = 0.5;
+    var move_buttons = { forward: 0, backward: 0, left: 0, right: 0 };
+    var heartbeat_left = 0, heartbeat_right = 0;
+
+    function moveProcess() {
+      var fwd = move_buttons.forward, bwd = move_buttons.backward, lft = move_buttons.left, rgt = move_buttons.right;
+      if (!fwd && !bwd && !lft && !rgt) { heartbeat_left = 0; heartbeat_right = 0; }
+      else if (fwd && !bwd && !lft && !rgt) { heartbeat_left = max_speed; heartbeat_right = max_speed; }
+      else if (!fwd && bwd && !lft && !rgt) { heartbeat_left = -max_speed; heartbeat_right = -max_speed; }
+      else if (!fwd && !bwd && lft && !rgt) { heartbeat_left = -max_speed; heartbeat_right = max_speed; }
+      else if (!fwd && !bwd && !lft && rgt) { heartbeat_left = max_speed; heartbeat_right = -max_speed; }
+      else if (fwd && !bwd && lft && !rgt) { heartbeat_left = slow_speed; heartbeat_right = max_speed; }
+      else if (fwd && !bwd && !lft && rgt) { heartbeat_left = max_speed; heartbeat_right = slow_speed; }
+      else if (!fwd && bwd && lft && !rgt) { heartbeat_left = -slow_speed; heartbeat_right = -max_speed; }
+      else if (!fwd && bwd && !lft && rgt) { heartbeat_left = -max_speed; heartbeat_right = -slow_speed; }
+      sendMove();
+      updatePadHighlight();
+    }
+
+    function sendMove() {
+      if (cmd_movition_ctrl === undefined || !socketJson.connected) return;
+      socketJson.emit('json', { T: cmd_movition_ctrl, L: heartbeat_left * speed_rate, R: heartbeat_right * speed_rate });
+    }
+
+    function updatePadHighlight() {
+      document.querySelectorAll('.wasd-pad .pad-btn').forEach(function (btn) {
+        btn.classList.toggle('pad-active', !!move_buttons[btn.dataset.cmd]);
+      });
+    }
+
+    // heartbeat resend, matches the safety pattern the existing driving UI uses
+    setInterval(sendMove, 2000);
+
+    document.querySelectorAll('.wasd-pad .pad-btn').forEach(function (btn) {
+      var dir = btn.dataset.cmd;
+      btn.addEventListener('mousedown', function () { move_buttons[dir] = 1; moveProcess(); });
+      ['mouseup', 'mouseleave', 'touchend'].forEach(function (evt) {
+        btn.addEventListener(evt, function () { move_buttons[dir] = 0; moveProcess(); });
+      });
+    });
+
+    var keyToDir = { w: 'forward', a: 'left', s: 'backward', d: 'right' };
+    document.addEventListener('keydown', function (e) {
+      if (isTyping(e)) return;
+      var dir = keyToDir[e.key.toLowerCase()];
+      if (dir && move_buttons[dir] === 0) { move_buttons[dir] = 1; moveProcess(); e.preventDefault(); }
+    });
+    document.addEventListener('keyup', function (e) {
+      var dir = keyToDir[e.key.toLowerCase()];
+      if (dir) { move_buttons[dir] = 0; moveProcess(); }
+    });
+
+    // safety: stop driving if the tab loses focus or is closed
+    window.addEventListener('blur', function () {
+      move_buttons.forward = move_buttons.backward = move_buttons.left = move_buttons.right = 0;
+      moveProcess();
+    });
+    window.addEventListener('beforeunload', function () {
+      if (socketJson.connected && cmd_movition_ctrl !== undefined) {
+        socketJson.emit('json', { T: cmd_movition_ctrl, L: 0, R: 0 });
+      }
+    });
+
+    // ============ REAL LIVE STATS (from the rover's existing /ctrl telemetry socket) ============
+    var socketCtrl = io('http://' + location.host + '/ctrl');
+    socketCtrl.emit('request_data');
+    socketCtrl.on('update', function (data) {
+      if (fb_cpu_load === undefined) return;
+      document.getElementById('stat-cpu').textContent = data[fb_cpu_load] != null ? data[fb_cpu_load] : '--';
+      document.getElementById('stat-ram').textContent = data[fb_ram_usage] != null ? data[fb_ram_usage] : '--';
+      document.getElementById('stat-battery').textContent = data[fb_base_voltage] != null ? data[fb_base_voltage] : '--';
+      document.getElementById('stat-temp').textContent = data[fb_cpu_temp] != null ? data[fb_cpu_temp] : '--';
+      document.getElementById('stat-rssi').textContent = data[fb_wifi_rssi] != null ? data[fb_wifi_rssi] : '--';
+      document.getElementById('stat-fps').textContent = data[fb_video_fps] != null ? data[fb_video_fps] : '--';
+      if (fb_led_mode !== undefined && fb_base_light !== undefined && data[fb_led_mode] != null && data[fb_base_light] != null) {
+        lightOn = data[fb_led_mode] === 2 && data[fb_base_light] > 0;
+        updateLightBtn();
+      }
+    });
+
+    // ============ LIGHTS TOGGLE (the two lights beside the depth camera: IO4 "base" + IO5 "head",
+    // both driven together over the same /ctrl socket + A:<code> commands the existing UI uses) ============
+    var lightOn = false;
+    var lightBtn = document.getElementById('light-toggle-btn');
+
+    function updateLightBtn() {
+      lightBtn.textContent = lightOn ? 'ON' : 'OFF';
+      lightBtn.classList.toggle('on', lightOn);
+    }
+
+    function sendCmd(code) {
+      if (code === undefined || !socketCtrl.connected) return;
+      socketCtrl.send(JSON.stringify({ A: code, B: 0, C: 0 }));
+    }
+
+    lightBtn.addEventListener('click', function () {
+      lightOn = !lightOn;
+      sendCmd(lightOn ? code_base_on : code_base_off);
+      sendCmd(lightOn ? code_led_ton : code_led_off);
+      updateLightBtn();
+    });
+
+    // ============ SPEED SLIDER ============
+    function updateSliderBg(slider) {
+      var value = (slider.value - slider.min) / (slider.max - slider.min) * 100;
+      slider.style.background = 'linear-gradient(to right, #4fd1c5 0%, #4fd1c5 ' + value + '%, #1b1f24 ' + value + '%, #1b1f24 100%)';
+    }
+    var roverSpeedSlider = document.getElementById('rover-speed');
+    roverSpeedSlider.addEventListener('input', function (e) {
+      speed_rate = e.target.value / 100;
+      document.getElementById('rover-speed-val').textContent = e.target.value;
+      updateSliderBg(e.target);
+    });
+
+    // ============ PRESETS ============
+    var promptInput = document.getElementById('prompt-input');
+
+    function applyPrompt() {
+      fetch('/api/reactor/prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptInput.value })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { console.log('Prompt set:', d); })
+        .catch(function (e) { console.error('Prompt error:', e); });
+    }
+    document.getElementById('apply-prompt-btn').addEventListener('click', applyPrompt);
+    promptInput.addEventListener('keydown', function (e) {
+      if (e.ctrlKey && e.key === 'Enter') applyPrompt();
+    });
+
+    document.querySelectorAll('.presets-grid .preset-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        promptInput.value = btn.dataset.prompt;
+        applyPrompt();
+      });
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (isTyping(e)) return;
+      var m = /^F([1-8])$/.exec(e.key);
+      if (m) {
+        var idx = parseInt(m[1], 10) - 1;
+        var btns = document.querySelectorAll('.presets-grid .preset-btn');
+        if (btns[idx]) btns[idx].click();
+        e.preventDefault();
+      }
+    });
+
+    function loadCustomPresets() {
+      var saved = localStorage.getItem('reactorCustomPresets');
+      if (!saved) return;
+      try { JSON.parse(saved).forEach(renderCustomPreset); }
+      catch (e) { console.error('Load presets error:', e); }
+    }
+    function renderCustomPreset(preset) {
+      var wrapper = document.createElement('div');
+      wrapper.style.display = 'flex';
+
+      var btn = document.createElement('button');
+      btn.className = 'preset-btn';
+      btn.textContent = preset.name;
+      btn.addEventListener('click', function () { promptInput.value = preset.prompt; applyPrompt(); });
+
+      var delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.style.cssText = 'padding:2px 4px;font-size:8px;background:#f0625a;color:#fff;border:none;border-radius:2px;cursor:pointer;margin-left:2px;';
+      delBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var saved = localStorage.getItem('reactorCustomPresets');
+        var presets = saved ? JSON.parse(saved).filter(function (p) { return p.name !== preset.name; }) : [];
+        localStorage.setItem('reactorCustomPresets', JSON.stringify(presets));
+        wrapper.remove();
+      });
+
+      wrapper.appendChild(btn);
+      wrapper.appendChild(delBtn);
+      document.getElementById('custom-presets').appendChild(wrapper);
+    }
+    document.getElementById('save-custom-preset').addEventListener('click', function () {
+      var name = document.getElementById('custom-preset-name').value.trim();
+      if (!name || !promptInput.value) { alert('Enter a name and a prompt'); return; }
+      var preset = { name: name, prompt: promptInput.value };
+      var saved = localStorage.getItem('reactorCustomPresets');
+      var presets = saved ? JSON.parse(saved) : [];
+      presets.push(preset);
+      localStorage.setItem('reactorCustomPresets', JSON.stringify(presets));
+      renderCustomPreset(preset);
+      document.getElementById('custom-preset-name').value = '';
+    });
+    loadCustomPresets();
+
+    // ============ SCREENSHOT (canvas from the reactor <img>, no backend needed) ============
+    document.getElementById('screenshot-btn').addEventListener('click', function () {
+      var img = document.getElementById('reactorVideo');
+      if (!img.naturalWidth) { alert('No video available yet'); return; }
+      var canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      var ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+      var a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = 'screenshot_' + ts + '.png';
+      a.click();
+    });
+
+    // ============ RECORDING (canvas.captureStream + MediaRecorder, real WebM, no backend needed) ============
+    var isRecording = false, recordStartTime = null, recordTimerInterval = null;
+    var recordRAF = null, mediaRecorder = null, recordedChunks = [];
+    var recordCanvas = document.createElement('canvas');
+    var recordCtx = recordCanvas.getContext('2d');
+
+    function drawRecordFrame() {
+      var img = document.getElementById('reactorVideo');
+      if (img.naturalWidth) {
+        if (recordCanvas.width !== img.naturalWidth) {
+          recordCanvas.width = img.naturalWidth;
+          recordCanvas.height = img.naturalHeight;
+        }
+        recordCtx.drawImage(img, 0, 0);
+      }
+      recordRAF = requestAnimationFrame(drawRecordFrame);
+    }
+
+    function updateRecordTimer() {
+      var secs = Math.floor((Date.now() - recordStartTime) / 1000);
+      var h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+      document.getElementById('recording-time').textContent =
+        String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+    }
+
+    function renderRecordingItem(filename, url) {
+      var item = document.createElement('div');
+      item.className = 'recording-item';
+      var label = document.createElement('span');
+      label.textContent = filename;
+      var dl = document.createElement('a');
+      dl.href = url; dl.download = filename; dl.className = 'recording-item-btn'; dl.textContent = 'DL';
+      item.appendChild(label);
+      item.appendChild(dl);
+      document.getElementById('recordings').appendChild(item);
+    }
+
+    document.getElementById('record-btn').addEventListener('click', function () {
+      if (isRecording) return;
+      var img = document.getElementById('reactorVideo');
+      if (!img.naturalWidth) { alert('No video available yet'); return; }
+      if (typeof MediaRecorder === 'undefined') { alert('Recording is not supported in this browser'); return; }
+
+      recordCanvas.width = img.naturalWidth;
+      recordCanvas.height = img.naturalHeight;
+      drawRecordFrame();
+
+      var stream = recordCanvas.captureStream(15);
+      recordedChunks = [];
+      var mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm';
+      mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+      mediaRecorder.ondataavailable = function (e) { if (e.data.size > 0) recordedChunks.push(e.data); };
+      mediaRecorder.onstop = function () {
+        cancelAnimationFrame(recordRAF);
+        var blob = new Blob(recordedChunks, { type: 'video/webm' });
+        var url = URL.createObjectURL(blob);
+        var ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        renderRecordingItem('reactor_recording_' + ts + '.webm', url);
+      };
+      mediaRecorder.start();
+
+      isRecording = true;
+      recordStartTime = Date.now();
+      document.getElementById('record-btn').classList.add('recording');
+      document.getElementById('recording-info').style.display = 'block';
+      recordTimerInterval = setInterval(updateRecordTimer, 200);
+    });
+
+    document.getElementById('stop-record-btn').addEventListener('click', function () {
+      if (!isRecording) return;
+      isRecording = false;
+      mediaRecorder.stop();
+      clearInterval(recordTimerInterval);
+      document.getElementById('record-btn').classList.remove('recording');
+      document.getElementById('recording-info').style.display = 'none';
+    });
+
+    // ============ REFERENCE IMAGE ============
+    var currentReferenceBlob = null;
+    document.getElementById('upload-ref-btn').addEventListener('click', function () {
+      document.getElementById('reference-input').click();
+    });
+    document.getElementById('reference-input').addEventListener('change', function (e) {
+      var file = e.target.files[0];
+      if (!file || !file.type.startsWith('image/')) { alert('Select an image file'); return; }
+      var reader = new FileReader();
+      reader.onload = function (evt) {
+        document.getElementById('ref-image').src = evt.target.result;
+        currentReferenceBlob = file;
+        document.getElementById('reference-preview').style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+    });
+    document.getElementById('apply-ref-btn').addEventListener('click', function () {
+      if (!currentReferenceBlob) return;
+      var fd = new FormData();
+      fd.append('image', currentReferenceBlob);
+      fetch('/api/reactor/reference-image', { method: 'POST', body: fd })
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (d.status === 'ok') {
+            document.getElementById('ref-status').textContent =
+              'Saved: ' + d.filename + ' -- has no effect yet (mock Reactor), will be used once the real API is connected.';
+          }
+        })
+        .catch(function (e) { console.error('Reference image error:', e); });
+    });
+    document.getElementById('clear-ref-btn').addEventListener('click', function () {
+      currentReferenceBlob = null;
+      document.getElementById('reference-input').value = '';
+      document.getElementById('reference-preview').style.display = 'none';
+    });
+
+    // ============ STATUS BAR ============
+    function pollHealth() {
+      fetch('/api/reactor/health')
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          document.getElementById('status-text').textContent =
+            'Status: ' + (data.reactor_connected ? 'Connected' : 'Offline') +
+            ' | Frames: ' + data.frames_processed +
+            ' | Prompt: ' + data.prompt +
+            (data.reference_image ? ' | Ref: ' + data.reference_image : '');
+        })
+        .catch(function () {
+          document.getElementById('status-text').textContent = 'Status: disconnected';
+        });
+    }
+    setInterval(pollHealth, 2000);
+
+    window.addEventListener('load', function () {
+      pollHealth();
+      updateSliderBg(roverSpeedSlider);
+      updateLightBtn();
+    });
+  </script>
+</body>
+</html>
