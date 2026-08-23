@@ -141,6 +141,7 @@ def generate_frames():
         with latest_frame_cv:
             latest_frame = frame
             latest_frame_cv.notify_all()
+        reactor_service.push_frame(frame)
         # print(cvf.cv_info())
         try:
             yield (b'--frame\r\n'
@@ -148,24 +149,24 @@ def generate_frames():
         except Exception as e:
             print("An [generate_frames] error occurred:", e)
 
-# Reactor X2 output. Reuses the frame generate_frames() already pulled from
-# the camera instead of calling cvf.frame_process() again here: that call
-# re-reads the camera device and has side effects (video capture, one-shot
-# photo flag), so it isn't safe to run twice per tick. This means the
-# reactor stream only produces frames while /video_feed also has a viewer.
+# Reactor X2 output. Doesn't reuse generate_frames()'s wait/notify loop above:
+# X2 is a real streaming session, not a per-frame call, so input (pushed by
+# generate_frames() as it pulls camera frames) and output (produced by the
+# model on its own cadence) are decoupled. This just polls for whatever the
+# model has most recently produced. Still depends on /video_feed having a
+# viewer, since that's what drives generate_frames() to push frames in.
 def generate_frames_reactor():
     while True:
-        with latest_frame_cv:
-            latest_frame_cv.wait(timeout=2)
-            frame = latest_frame
+        frame = reactor_service.get_latest_output()
         if frame is None:
+            time.sleep(0.05)
             continue
         try:
-            processed = reactor_service.process_frame_sync(frame)
             yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + processed + b'\r\n')
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
         except Exception as e:
             print("An [generate_frames_reactor] error occurred:", e)
+        time.sleep(1 / 24)
 
 
 
