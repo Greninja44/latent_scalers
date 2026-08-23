@@ -5,7 +5,6 @@ Waveshare's [`ugv_rpi`](https://github.com/waveshareteam/ugv_rpi), running
 on the rover's onboard Pi and driving the ESP32-based lower-computer
 controller over UART/JSON.
 
-![](./media/UGV-Rover-details-23.jpg)
 
 ## What's here
 
