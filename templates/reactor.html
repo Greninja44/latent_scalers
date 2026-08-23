@@ -213,25 +213,30 @@
     .wasd-row { display: flex; gap: 4px; }
 
     .pad-btn {
-      width: 36px;
-      height: 36px;
+      width: 38px;
+      height: 38px;
       background: var(--panel-alt);
       color: var(--accent);
-      border: 1px solid var(--border);
-      border-radius: 4px;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
       font-size: 14px;
       font-weight: bold;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      transition: background 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s;
       user-select: none;
     }
 
     .pad-btn:hover { background: var(--accent); color: #04211e; border-color: var(--accent); }
     .pad-btn:active { transform: scale(0.95); }
-    .pad-btn.pad-active { background: var(--accent); color: #04211e; border-color: var(--accent); }
+    .pad-btn.pad-active {
+      background: var(--accent);
+      color: #04211e;
+      border-color: var(--accent);
+      box-shadow: 0 0 14px -2px rgba(79, 209, 197, 0.7);
+    }
 
     .pad-info { font-size: 9px; color: var(--text-dim); text-align: center; }
 
@@ -268,8 +273,8 @@
       padding: 10px;
       background: var(--panel-alt);
       color: var(--text-dim);
-      border: 1px solid var(--border);
-      border-radius: 4px;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
       font-weight: 700;
       font-size: 12px;
       letter-spacing: 1px;
@@ -277,87 +282,113 @@
       transition: all 0.15s;
     }
     .light-btn:hover { border-color: var(--warn); }
-    .light-btn.on { background: var(--warn); color: #241900; border-color: var(--warn); }
+    .light-btn.on {
+      background: var(--warn);
+      color: #241900;
+      border-color: var(--warn);
+      box-shadow: 0 0 14px -2px rgba(245, 166, 35, 0.6);
+    }
 
-    .presets-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 10px; }
+    .presets-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 12px; }
 
     .preset-btn {
-      background: var(--panel-alt); color: var(--accent); border: 1px solid var(--border);
-      padding: 7px 4px; border-radius: 4px; font-size: 10px; font-weight: 600;
-      cursor: pointer; transition: border-color 0.15s; text-align: center;
+      background: var(--panel-alt); color: var(--accent); border: 1px solid var(--panel-border);
+      padding: 8px 4px; border-radius: 7px; font-size: 10px; font-weight: 600;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s; text-align: center;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .preset-btn:hover { border-color: var(--accent); }
+    .preset-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
     .preset-btn.preset-active { background: var(--accent); color: #04211e; border-color: var(--accent); }
 
     .custom-input {
-      background: var(--panel-alt); color: var(--text); border: 1px solid var(--border);
-      padding: 5px 6px; border-radius: 4px; font-size: 10px; font-family: monospace;
+      background: var(--panel-alt); color: var(--text); border: 1px solid var(--panel-border);
+      padding: 6px 8px; border-radius: 6px; font-size: 10px; font-family: monospace;
     }
     .custom-input::placeholder { color: var(--text-dim); }
 
     .small-btn {
       background: var(--accent); color: #04211e; border: none; padding: 5px 8px;
-      border-radius: 4px; font-size: 9px; font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+      border-radius: 6px; font-size: 9px; font-weight: 700; cursor: pointer; transition: opacity 0.15s;
     }
     .small-btn:hover { opacity: 0.85; }
 
     .record-controls { display: flex; gap: 6px; }
     .record-btn, .screenshot-btn {
-      flex: 1; padding: 9px 6px; border: 1px solid var(--border); background: var(--panel-alt); color: var(--danger);
-      border-radius: 4px; font-weight: 700; font-size: 10px; cursor: pointer; transition: border-color 0.15s;
+      flex: 1; padding: 9px 6px; border: 1px solid var(--panel-border); background: var(--panel-alt); color: var(--danger);
+      border-radius: 7px; font-weight: 700; font-size: 10px; cursor: pointer; transition: border-color 0.15s;
       display: flex; align-items: center; justify-content: center; gap: 4px;
     }
     .record-btn:hover, .screenshot-btn:hover { border-color: var(--danger); }
-    .record-btn.recording { background: var(--danger); color: #2a0704; border-color: var(--danger); animation: pulse 1.2s infinite; }
+    .record-btn.recording {
+      background: var(--danger); color: #2a0704; border-color: var(--danger);
+      box-shadow: 0 0 14px -2px rgba(240, 98, 90, 0.65);
+      animation: pulse 1.2s infinite;
+    }
     @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
     .record-dot { display: inline-block; width: 6px; height: 6px; background: var(--danger); border-radius: 50%; }
     .record-btn.recording .record-dot { background: #2a0704; }
 
     .recording-item {
-      background: var(--panel-alt); padding: 5px 6px; border-radius: 4px; margin-bottom: 4px;
+      background: var(--panel-alt); padding: 6px 8px; border-radius: 6px; margin-bottom: 4px;
       display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: var(--text-dim);
+      border: 1px solid var(--panel-border);
     }
     .recording-item-btn {
       background: var(--accent); color: #04211e; border: none; padding: 2px 5px;
-      border-radius: 3px; font-size: 8px; cursor: pointer; margin-left: 4px; text-decoration: none;
+      border-radius: 4px; font-size: 8px; cursor: pointer; margin-left: 4px; text-decoration: none;
     }
 
     .upload-btn {
-      width: 100%; padding: 10px; background: var(--panel-alt); color: var(--accent); border: 1px dashed var(--border);
-      border-radius: 4px; font-weight: 600; font-size: 11px; cursor: pointer; transition: border-color 0.15s;
+      width: 100%; padding: 10px; background: var(--panel-alt); color: var(--accent); border: 1px dashed var(--panel-border);
+      border-radius: 8px; font-weight: 600; font-size: 11px; cursor: pointer; transition: border-color 0.15s, background 0.15s;
     }
-    .upload-btn:hover { border-color: var(--accent); }
+    .upload-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
     #ref-status { color: var(--text-dim); font-size: 9px; margin-top: 6px; line-height: 1.4; }
 
-    .bottom-panel { background: var(--bg); border-top: 1px solid var(--border); padding: 12px 14px; display: flex; gap: 12px; align-items: flex-end; }
+    .bottom-panel {
+      background: rgba(10, 11, 13, 0.85);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--panel-border);
+      padding: 14px 16px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-end;
+    }
     .prompt-section { flex: 1; }
     .prompt-label { display: block; color: var(--text-dim); font-size: 11px; margin-bottom: 6px; font-weight: 600; letter-spacing: 0.5px; }
     .prompt-input {
-      width: 100%; background: var(--panel-alt); color: var(--text); border: 1px solid var(--border);
-      padding: 8px; border-radius: 4px; font-size: 11px; font-family: monospace; resize: none;
+      width: 100%; background: var(--panel-alt); color: var(--text); border: 1px solid var(--panel-border);
+      padding: 9px 10px; border-radius: 8px; font-size: 11px; font-family: monospace; resize: none;
+      transition: border-color 0.15s;
     }
+    .prompt-input:focus { outline: none; border-color: var(--accent); }
     .prompt-input::placeholder { color: var(--text-dim); }
     .apply-btn {
-      background: var(--accent); color: #04211e; border: none; padding: 8px 18px;
-      border-radius: 4px; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+      background: var(--accent); color: #04211e; border: none; padding: 9px 20px;
+      border-radius: 8px; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s, box-shadow 0.15s;
+      box-shadow: 0 0 16px -4px rgba(79, 209, 197, 0.6);
     }
-    .apply-btn:hover { opacity: 0.85; }
+    .apply-btn:hover { opacity: 0.88; }
     .session-btn {
-      background: transparent; padding: 8px 14px; border-radius: 4px; font-weight: 700;
-      font-size: 11px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+      background: transparent; padding: 9px 16px; border-radius: 8px; font-weight: 700;
+      font-size: 11px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s, background 0.15s;
     }
-    .session-btn:hover:not(:disabled) { opacity: 0.75; }
+    .session-btn:hover:not(:disabled) { opacity: 0.85; }
     .session-btn:disabled { opacity: 0.35; cursor: default; }
     .reset-btn { border: 1px solid var(--warn); color: var(--warn); }
+    .reset-btn:hover:not(:disabled) { background: rgba(245, 166, 35, 0.1); }
     .disconnect-btn { border: 1px solid var(--danger); color: var(--danger); }
+    .disconnect-btn:hover:not(:disabled) { background: rgba(240, 98, 90, 0.1); }
     .connect-btn { border: 1px solid var(--accent); color: var(--accent); }
+    .connect-btn:hover:not(:disabled) { background: var(--accent-soft); }
     .prompt-count { font-size: 10px; font-family: monospace; color: var(--text-dim); }
     .prompt-count.over { color: var(--danger); font-weight: 700; }
     .status-section {
-      background: var(--panel); padding: 8px 12px; border-radius: 4px; font-size: 10px;
-      font-family: monospace; color: var(--text-dim); white-space: nowrap; border: 1px solid var(--border);
+      background: var(--panel); padding: 8px 12px; border-radius: 8px; font-size: 10px;
+      font-family: monospace; color: var(--text-dim); white-space: nowrap; border: 1px solid var(--panel-border);
     }
+
+    .icon { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; }
 
     @media (max-width: 1024px) {
       .content-area { flex-direction: column; }
@@ -368,14 +399,23 @@
 </head>
 <body>
   <div class="reactor-container">
-    <a class="back-link" href="./">&lt; Index Page</a>
-    <h1 class="main-title">Reactor X2</h1>
+    <div class="app-header">
+      <span class="brand-mark">X2</span>
+      <div class="header-titles">
+        <h1 class="main-title">Reactor X2</h1>
+        <span class="header-subtitle">UGV BEAST &middot; LIVE STYLE TRANSFER</span>
+      </div>
+      <a class="back-link" href="./">&larr; Index Page</a>
+    </div>
 
     <div class="content-area">
       <div class="controls-left">
 
         <div class="control-pad wasd-pad">
-          <div class="pad-title">Rover</div>
+          <div class="pad-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8.5 8 10 4.5-1.5 8-5 8-10V6l-8-4Z"/></svg>
+            Rover
+          </div>
           <div class="wasd-layout">
             <button class="pad-btn pad-up" data-cmd="forward" title="W">&#9650;</button>
             <div class="wasd-row">
@@ -388,12 +428,18 @@
         </div>
 
         <div class="light-panel">
-          <div class="panel-title">Lights</div>
+          <div class="panel-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.6 1 1.4 1 2.5h6c0-1.1.3-1.9 1-2.5A6 6 0 0 0 12 3Z"/></svg>
+            Lights
+          </div>
           <button id="light-toggle-btn" class="light-btn">OFF</button>
         </div>
 
         <div class="control-panel speed-panel">
-          <div class="panel-title">Speed</div>
+          <div class="panel-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2.5-7 5 14L17 12h4"/></svg>
+            Speed
+          </div>
           <div class="slider-group">
             <label for="rover-speed">Rover: <span id="rover-speed-val">50</span>%</label>
             <input type="range" id="rover-speed" min="0" max="100" value="50" class="slider">
@@ -401,7 +447,10 @@
         </div>
 
         <div class="presets-panel">
-          <div class="panel-title">Presets</div>
+          <div class="panel-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M4.5 12h4M15.5 12h4"/><path d="M12 8.2c.5 1.6 1.2 2.3 2.8 2.8-1.6.5-2.3 1.2-2.8 2.8-.5-1.6-1.2-2.3-2.8-2.8 1.6-.5 2.3-1.2 2.8-2.8Z"/></svg>
+            Presets
+          </div>
           <div class="presets-grid">
             <button class="preset-btn" data-prompt="racing on a desert track with sand dunes" title="F1">Desert</button>
             <button class="preset-btn" data-prompt="neon cyberpunk city with glowing lights" title="F2">Neon</button>
@@ -423,7 +472,10 @@
         </div>
 
         <div class="recording-panel">
-          <div class="panel-title" style="color: var(--danger);">Recording</div>
+          <div class="panel-title" style="color: var(--danger);">
+            <svg class="icon" style="color: var(--danger);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>
+            Recording
+          </div>
           <div class="record-controls">
             <button id="record-btn" class="record-btn"><span class="record-dot"></span> REC</button>
             <button id="screenshot-btn" class="screenshot-btn">SNAP</button>
@@ -439,7 +491,10 @@
         </div>
 
         <div class="reference-panel">
-          <div class="panel-title">Reference</div>
+          <div class="panel-title">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="8.5" cy="9.5" r="1.5" fill="currentColor" stroke="none"/><path d="M20.5 15.5 15.5 11 6 19.5"/></svg>
+            Reference
+          </div>
           <div style="text-align: center;">
             <input type="file" id="reference-input" accept="image/*" style="display: none;">
             <button id="upload-ref-btn" class="upload-btn">Choose Image</button>
