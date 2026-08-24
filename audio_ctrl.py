@@ -1,3 +1,11 @@
+"""Sound playback (pygame) and text-to-speech (pyttsx3).
+
+If no output device is available, `usb_connected` stays False and every
+function here returns immediately. Playback failures are therefore silent by
+design -- no exception ever reaches the caller, so a quiet rover is not
+evidence that the call was not made. Check the "audio usb not connected" line
+printed at import.
+"""
 import pygame
 import os
 import random
@@ -129,5 +137,5 @@ if __name__ == '__main__':
 	# 	engine.say("this is a test")
 	# 	engine.runAndWait()
 	# 	time.sleep(1)
-	play_audio_thread("/home/ws/ugv_rpi/sounds/others/Boomopera_-_You_Rock_Full_Length.mp3")
+	play_audio_thread(os.path.join(current_path, "sounds", "robot_started", "started.mp3"))
 	time.sleep(100)

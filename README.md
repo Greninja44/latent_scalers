@@ -1,59 +1,97 @@
-# UGV Beast Control (latent_scalers)
+# UGV Beast Control (`latent_scalers`)
 
 Raspberry Pi control app for a Waveshare **UGV Beast** rover — a fork of
-Waveshare's [`ugv_rpi`](https://github.com/waveshareteam/ugv_rpi), running
-on the rover's onboard Pi and driving the ESP32-based lower-computer
-controller over UART/JSON.
+Waveshare's [`ugv_rpi`](https://github.com/waveshareteam/ugv_rpi) that adds a
+**Reactor X2** page: a live video-to-video editing view driven by a text prompt.
 
+The Pi runs this app (web UI, camera, CV, strategy). An ESP32 "lower computer"
+running [`ugv_base_general`](https://github.com/waveshareteam/ugv_base_general)
+handles motors, servos, lights and sensors. They talk JSON over GPIO UART.
 
-## What's here
+---
 
-This is the actual upper-computer app running on the physical rover, plus
-one addition on top of upstream:
+## Quick start
 
-- **Reactor X2** (`templates/reactor.html`, `reactor_service.py`) — a
-  second control page with a split live/processed video view, real
-  WASD + drive control, a combined light toggle (both lights beside the
-  depth camera), presets, client-side screenshot/recording, and a
-  reference-image upload. The video-effects backend is currently a mock
-  passthrough (`reactor_service.py`), swappable for a real API later.
+On a fresh Raspberry Pi (Bookworm, 64-bit):
 
-Everything else — Flask + Socket.IO app (`app.py`), motor/servo/light
-control (`base_ctrl.py`), computer vision (`cv_ctrl.py`), audio
-(`audio_ctrl.py`), and the JupyterLab tutorials — is upstream Waveshare
-code for driving the rover, controlling its pan-tilt camera and lights,
-and running CV features (object/face/gesture recognition, line tracking,
-motion detection).
+```bash
+git clone https://github.com/Greninja44/latent_scalers.git
+cd latent_scalers
+sudo ./scripts/setup.sh      # apt packages, UART config, venv, pip install
+./scripts/autorun.sh         # install the @reboot cron jobs (no sudo)
+sudo reboot
+```
 
-## Basic architecture
+After boot the OLED shows the Pi's IP address. Then:
 
-The Pi (upper computer) handles AI vision, the web UI, and strategy
-planning; an ESP32-based driver (lower computer, [`ugv_base_general`](https://github.com/waveshareteam/ugv_base_general))
-handles motion control and sensor data. They talk over GPIO UART using
-JSON commands.
+| What | Where |
+| --- | --- |
+| Main driving UI | `http://<pi-ip>:5000/` |
+| Reactor X2 page | `http://<pi-ip>:5000/reactor.html` |
+| JupyterLab | `http://<pi-ip>:8888/` |
 
-## Running it
+To run it by hand instead of via cron:
 
-Already installed on the rover's SD card. To set up on a fresh Pi:
+```bash
+./ugv-env/bin/python -u app.py     # -u matters; see docs/setup.md
+```
 
-    git clone https://github.com/Greninja44/latent_scalers.git
-    cd latent_scalers
-    sudo chmod +x setup.sh autorun.sh
-    sudo ./setup.sh
-    ./autorun.sh
-    sudo reboot
+Full install notes, environment variables and troubleshooting:
+**[docs/setup.md](docs/setup.md)**.
 
-After boot, the OLED shows the Pi's IP; the web UI is at `[IP]:5000`
-(`/reactor.html` for the Reactor X2 page), JupyterLab at `[IP]:8888`. If
-not on a known WiFi network, it hosts its own AP (`AccessPopup`,
-password `1234567890`) at `192.168.50.5:5000`.
+---
 
-Robot type is set via `config.yaml` (or `s <NN>` over the command line —
-first digit is robot type: `1` RaspRover, `2` UGV Rover, `3` UGV Beast;
-second digit is the module: `0` none, `1` RoArm-M2, `2` Camera PT).
+## Repository layout
+
+```
+app.py               Flask + Socket.IO server: routes, sockets, MJPEG streams,
+                     command-line parser, boot sequence. The entry point.
+base_ctrl.py         Serial link to the ESP32 — drive, gimbal, lights, OLED,
+                     and the feedback reader thread.
+cv_ctrl.py           All camera and computer vision: capture, OSD, recording,
+                     face/object/colour/gesture/pose detection, line tracking,
+                     auto-drive, pan-tilt tracking.
+audio_ctrl.py        Sound playback (pygame) and text-to-speech (pyttsx3).
+os_info.py           Background thread polling CPU/RAM/temperature/IP/RSSI.
+reactor_service.py   Reactor X2 client — the one substantial addition to
+                     upstream. Mock passthrough when no API key is set.
+config.yaml          Robot type, speeds, CV tuning, and the numeric codes the
+                     web UI and server use to talk to each other.
+requirements.txt     Pinned Python dependencies.
+
+docs/                Architecture, setup and Reactor X2 documentation.
+scripts/             setup.sh, autorun.sh, start_jupyter.sh.
+system/              Files setup.sh installs into /etc (ALSA + OAK udev rule).
+templates/           The web UI — HTML pages, JS, CSS, fonts, icons. Served
+                     both by Jinja (index.html) and as static files.
+models/              Pre-trained OpenCV models (MobileNet-SSD, Haar cascade).
+sounds/              Startup/connect chimes, and uploaded audio.
+```
+
+## Documentation
+
+- **[docs/setup.md](docs/setup.md)** — installing, running, environment
+  variables, and the failure modes worth knowing before you debug one.
+- **[docs/architecture.md](docs/architecture.md)** — how the two computers
+  split the work, the video pipeline, the Socket.IO channels, and how
+  `config.yaml`'s numeric codes tie the UI to the server.
+- **[docs/reactor-x2.md](docs/reactor-x2.md)** — what X2 does (and, more
+  importantly, what it does *not* do), the session lifecycle, the HTTP API,
+  and measured latency.
+
+## What is upstream and what is not
+
+Everything except `reactor_service.py`, `templates/reactor.html` and the
+Reactor routes in `app.py` is upstream Waveshare code, kept close to original
+so upstream fixes remain easy to apply. This fork additionally:
+
+- removes the JupyterLab tutorial notebooks, the AccessPopup hotspot installer
+  and the shipped placeholder photos/videos;
+- resolves script paths from the repo location instead of hardcoding
+  `~/ugv_rpi`, so the checkout can live anywhere.
 
 ## License
 
-Upstream `ugv_rpi` code: Copyright (C) 2024 [Waveshare](https://www.waveshare.com/),
-GNU GPLv3 — see [LICENSE](./LICENSE). Modifications in this fork are
-licensed the same way.
+Upstream `ugv_rpi` code: Copyright (C) 2024
+[Waveshare](https://www.waveshare.com/), GNU GPLv3 — see [LICENSE](./LICENSE).
+Modifications in this fork are licensed the same way.

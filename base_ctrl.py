@@ -1,3 +1,13 @@
+"""Serial link to the ESP32 lower computer.
+
+Two classes: `ReadLine`, a buffered reader that pulls whole JSON lines off the
+UART, and `BaseController`, the entire Pi-side command surface -- drive,
+gimbal, lights, OLED, ESP-NOW peers, IMU/lidar feedback.
+
+Every command is a JSON object with a "T" field naming it; the codes live in
+config.yaml's cmd_config block. The receive side runs on its own thread and
+keeps the most recent feedback frame in `base_data`.
+"""
 import serial  
 import json
 import queue

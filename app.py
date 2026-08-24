@@ -1,3 +1,13 @@
+"""Flask + Socket.IO server for the UGV rover -- the upper computer.
+
+Serves the web UI, both MJPEG video streams, the Socket.IO control and
+telemetry channels, and the Reactor X2 API. Motion and sensor work happens on
+the ESP32 lower computer; everything here reaches it through base_ctrl.
+
+Import order matters. The serial link and the OLED are set up at the very top,
+before the Flask imports, so the OLED shows "Starting..." while the (slow)
+OpenCV and MediaPipe imports below run. See docs/architecture.md.
+"""
 # import base_ctrl library
 from base_ctrl import BaseController
 import threading
@@ -463,7 +473,7 @@ def offer_route():
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-# Route to stream video frames through the (mock) Reactor X2 service
+# Route to stream the Reactor X2 output (the edited video)
 @app.route('/video_feed_reactor')
 def video_feed_reactor():
     return Response(generate_frames_reactor(), mimetype='multipart/x-mixed-replace; boundary=frame')
@@ -712,7 +722,8 @@ if __name__ == "__main__":
     base.lights_ctrl(0, 0)
     cmd_on_boot()
 
-    # start the (mock) Reactor X2 service
+    # Start the Reactor X2 service. With no REACTOR_API_KEY set this falls
+    # back to a passthrough mock; a failed connect is logged, not fatal.
     reactor_service.init_reactor(os.getenv('REACTOR_API_KEY'))
 
     # run the main web app

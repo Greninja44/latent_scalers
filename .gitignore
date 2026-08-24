@@ -1,7 +1,25 @@
+# Python virtualenv created by scripts/setup.sh
 ugv-env/
 __pycache__/
-tutorial_cn/__pycache__/
-tutorial_en/.ipynb_checkpoints/
-tutorial_cn/.ipynb_checkpoints/
+*.py[cod]
+
+# Secrets. REACTOR_API_KEY is read from the environment by app.py; keep it in
+# a .env or ~/.bashrc, never in a tracked file.
+.env
+
+# Runtime output written into the repo directory
+ugv.log
+jupyter_log.log
+.ipynb_checkpoints/
+
+# Reference images uploaded through /api/reactor/reference-image, which
+# app.py saves next to itself as reactor_reference_<original filename>.
+reactor_reference_*
+
+# Photos and videos captured by the web UI
 templates/pictures/photo*
 templates/videos/video*
+
+# Timestamped backups left behind when editing templates by hand
+*.bak
+*.bak-*

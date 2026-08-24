@@ -1,1 +1,4 @@
-
+# Audio files uploaded through the web UI (/uploadAudio) land here.
+# Keep the directory, ignore its contents.
+*
+!.gitignore

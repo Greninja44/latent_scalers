@@ -2,10 +2,18 @@
 
 if [ "$EUID" -ne 0 ]; then
     echo "This script must be run with sudo."
-    echo "Use 'sudo ./setup.sh' instead of './setup.sh'"
+    echo "Use 'sudo ./scripts/setup.sh' instead of './scripts/setup.sh'"
     echo "Exiting..."
     exit 1
 fi
+
+# Every path below is resolved from this script's own location, so the repo can
+# live anywhere and be named anything -- these used to be hardcoded to
+# /home/<user>/ugv_rpi, which is upstream's directory name, not this one's.
+REPO_ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+# setup.sh runs under sudo, so $USER/$HOME are root's. The invoking login user
+# owns the venv and needs the dialout group, so resolve them explicitly.
+RUN_USER="$(logname)"
 
 # Default value for using other source
 use_index=false
@@ -143,37 +151,33 @@ sudo apt install -y libopenblas-dev libatlas3-base libcamera-dev python3-opencv 
 sudo apt install -y util-linux procps hostapd iproute2 iw haveged dnsmasq iptables espeak
 
 
-echo "# Create a Python virtual environment."
-# Create a Python virtual environment
-cd $PWD
-python -m venv --system-site-packages ugv-env
-
-echo "# Activate a Python virtual environment."
+echo "# Create a Python virtual environment at $REPO_ROOT/ugv-env."
+# --system-site-packages is required: python3-opencv, libcamera and picamera2
+# are installed as apt packages above and are not pip-installable on the Pi.
+sudo -H -u "$RUN_USER" python -m venv --system-site-packages "$REPO_ROOT/ugv-env"
 
 echo "# Install dependencies from requirements.txt"
-# Install dependencies from requirements.txt
 if $use_index; then
-  sudo -H -u $USER bash -c 'source $PWD/ugv-env/bin/activate && pip install -i https://pypi.tuna.tsinghua.edu.cn/simple -r requirements.txt && deactivate'
+  PIP_ARGS="-i https://pypi.tuna.tsinghua.edu.cn/simple"
 else
-  sudo -H -u $USER bash -c 'source $PWD/ugv-env/bin/activate && pip install -r requirements.txt && deactivate'
+  PIP_ARGS=""
 fi
+sudo -H -u "$RUN_USER" "$REPO_ROOT/ugv-env/bin/pip" install $PIP_ARGS -r "$REPO_ROOT/requirements.txt"
 
-echo "# Add current user to group so it can use serial."
-sudo usermod -aG dialout $USER
+echo "# Add $RUN_USER to the dialout group so it can use the serial port."
+sudo usermod -aG dialout "$RUN_USER"
 
-# Audio Config
-echo "# Audio Config."
-sudo cp -v -f /home/$(logname)/ugv_rpi/asound.conf /etc/asound.conf
+# Audio: route ALSA's default device at the USB sound card.
+echo "# Audio config."
+sudo cp -v -f "$REPO_ROOT/system/asound.conf" /etc/asound.conf
 
-# OAK Config
-sudo cp -v -f /home/$(logname)/ugv_rpi/99-dai.rules /etc/udev/rules.d/99-dai.rules
+# OAK depth camera: udev rule granting non-root access to the Movidius VPU.
+echo "# OAK udev rule."
+sudo cp -v -f "$REPO_ROOT/system/99-dai.rules" /etc/udev/rules.d/99-dai.rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 
 echo "Setup completed. Please to reboot your Raspberry Pi for the changes to take effect."
 
-echo "Use the command below to run app.py onboot."
-
-echo "sudo chmod +x autorun.sh"
-
-echo "./autorun.sh"
+echo "Use the command below to run app.py on boot:"
+echo "  ./scripts/autorun.sh"

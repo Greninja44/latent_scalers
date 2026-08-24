@@ -1,3 +1,11 @@
+"""Background system telemetry.
+
+`SystemInfo` is a daemon thread polling CPU load and temperature, RAM, the
+eth0/wlan0 addresses, WiFi mode and signal strength, and the size of the
+captured photo/video folders. app.py reads its attributes directly and pushes
+them to the browser over the Socket.IO /ctrl channel; the OLED loop reads the
+same fields.
+"""
 import os, psutil, time
 import subprocess, re, netifaces
 import threading

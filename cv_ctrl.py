@@ -1,3 +1,16 @@
+"""Camera capture and computer vision.
+
+`OpencvFuncs.frame_process()` is the single camera read for the whole app: it
+grabs a frame, runs whichever CV mode is selected, draws the OSD, handles
+capture/recording, and returns an encoded JPEG. It has side effects, so it must
+be called from exactly one place -- app.py's generate_frames() -- and its
+output shared, never called a second time to get "another" frame.
+
+Modes (selected by the code: values in config.yaml): motion, faces (Haar and
+MediaPipe), objects (MobileNet-SSD from models/), colour tracking, hand
+gestures, pose, line following and auto-drive. Detection can react by driving
+the gimbal to track the target.
+"""
 import cv2
 import imutils
 import mediapipe as mp
