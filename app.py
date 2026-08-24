@@ -159,8 +159,16 @@ def generate_frames_reactor():
     while True:
         frame = reactor_service.get_latest_output()
         if frame is None:
-            time.sleep(0.05)
-            continue
+            # No recent model output: the session may have dropped, or it
+            # hasn't produced its first block yet. Fall back to the raw camera
+            # rather than stalling -- a stalled stream leaves the last edited
+            # frame frozen on screen, which reads as a working effect long
+            # after the model has stopped producing one.
+            with latest_frame_cv:
+                frame = latest_frame
+            if frame is None:
+                time.sleep(0.05)
+                continue
         try:
             yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
@@ -464,8 +472,40 @@ def video_feed_reactor():
 def reactor_set_prompt():
     data = request.get_json(silent=True) or {}
     prompt = data.get('prompt', '')
-    reactor_service.set_prompt(prompt)
+    try:
+        reactor_service.set_prompt(prompt)
+    except ValueError as e:
+        # Over the model's prompt-length cap: the UI needs to show this, and a
+        # 500 here previously read as "the server broke" when in fact the old
+        # prompt was simply still in effect.
+        return jsonify({'status': 'error', 'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 502
     return jsonify({'status': 'ok', 'prompt': prompt})
+
+@app.route('/api/reactor/reset', methods=['POST'])
+def reactor_reset():
+    try:
+        reactor_service.reset()
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 502
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/reactor/disconnect', methods=['POST'])
+def reactor_disconnect():
+    try:
+        reactor_service.disconnect()
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 502
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/reactor/connect', methods=['POST'])
+def reactor_connect():
+    try:
+        reactor_service.connect()
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e)}), 502
+    return jsonify({'status': 'ok'})
 
 @app.route('/api/reactor/health')
 def reactor_health():

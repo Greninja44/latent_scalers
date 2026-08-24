@@ -291,6 +291,17 @@
       border-radius: 4px; font-weight: 700; font-size: 11px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
     }
     .apply-btn:hover { opacity: 0.85; }
+    .session-btn {
+      background: transparent; padding: 8px 14px; border-radius: 4px; font-weight: 700;
+      font-size: 11px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s;
+    }
+    .session-btn:hover:not(:disabled) { opacity: 0.75; }
+    .session-btn:disabled { opacity: 0.35; cursor: default; }
+    .reset-btn { border: 1px solid var(--warn); color: var(--warn); }
+    .disconnect-btn { border: 1px solid var(--danger); color: var(--danger); }
+    .connect-btn { border: 1px solid var(--accent); color: var(--accent); }
+    .prompt-count { font-size: 10px; font-family: monospace; color: var(--text-dim); }
+    .prompt-count.over { color: var(--danger); font-weight: 700; }
     .status-section {
       background: var(--panel); padding: 8px 12px; border-radius: 4px; font-size: 10px;
       font-family: monospace; color: var(--text-dim); white-space: nowrap; border: 1px solid var(--border);
@@ -420,7 +431,10 @@
 
     <div class="bottom-panel">
       <div class="prompt-section">
-        <label class="prompt-label">Reactor Prompt:</label>
+        <label class="prompt-label">
+          Reactor Prompt:
+          <span id="prompt-count" class="prompt-count"></span>
+        </label>
         <div style="display: flex; gap: 8px;">
           <textarea
             id="prompt-input"
@@ -430,6 +444,11 @@
           >no effect</textarea>
           <button id="apply-prompt-btn" class="apply-btn">Apply</button>
         </div>
+      </div>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button id="reset-btn" class="session-btn reset-btn" title="Rebuild the X2 session. Clears the backlog that makes the output drift further behind live.">Reset</button>
+        <button id="disconnect-btn" class="session-btn disconnect-btn" title="Drop the X2 session and free the model slot.">Disconnect</button>
+        <button id="connect-btn" class="session-btn connect-btn" style="display: none;" title="Reconnect to X2.">Connect</button>
       </div>
       <div class="status-section">
         <span id="status-text">Status: connecting...</span>
@@ -593,15 +612,39 @@
     // ============ PRESETS ============
     var promptInput = document.getElementById('prompt-input');
 
+    // X2 rejects the whole set_prompt command over this length, which leaves
+    // the PREVIOUS prompt quietly in effect -- so it's worth showing before
+    // the user hits Apply. Refreshed from /health, which reports the real cap.
+    var maxPromptChars = 1000;
+    var promptCount = document.getElementById('prompt-count');
+
+    function updatePromptCount() {
+      var n = promptInput.value.length;
+      promptCount.textContent = n + ' / ' + maxPromptChars;
+      promptCount.classList.toggle('over', n > maxPromptChars);
+    }
+    promptInput.addEventListener('input', updatePromptCount);
+
     function applyPrompt() {
+      if (promptInput.value.length > maxPromptChars) {
+        setSessionNote('Prompt too long: ' + promptInput.value.length +
+          ' / ' + maxPromptChars + ' chars. Not applied.', true);
+        return;
+      }
       fetch('/api/reactor/prompt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: promptInput.value })
       })
-        .then(function (r) { return r.json(); })
-        .then(function (d) { console.log('Prompt set:', d); })
-        .catch(function (e) { console.error('Prompt error:', e); });
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) {
+            setSessionNote('Prompt rejected: ' + (res.d.error || 'unknown error'), true);
+          } else {
+            setSessionNote('Prompt applied.', false);
+          }
+        })
+        .catch(function (e) { setSessionNote('Prompt error: ' + e, true); });
     }
     document.getElementById('apply-prompt-btn').addEventListener('click', applyPrompt);
     promptInput.addEventListener('keydown', function (e) {
@@ -797,24 +840,101 @@
       document.getElementById('reference-preview').style.display = 'none';
     });
 
+    // ============ SESSION CONTROLS ============
+    var resetBtn = document.getElementById('reset-btn');
+    var disconnectBtn = document.getElementById('disconnect-btn');
+    var connectBtn = document.getElementById('connect-btn');
+    var sessionNote = '';
+    var sessionNoteIsError = false;
+    var sessionBusy = false;
+
+    function setSessionNote(msg, isError) {
+      sessionNote = msg;
+      sessionNoteIsError = !!isError;
+      pollHealth();
+    }
+
+    // Reset and connect rebuild the whole WebRTC session and can take tens of
+    // seconds, so the buttons lock for the duration rather than letting a
+    // second click start an overlapping teardown.
+    function sessionAction(url, label, btn) {
+      if (sessionBusy) return;
+      sessionBusy = true;
+      var prev = btn.textContent;
+      btn.textContent = label + '...';
+      [resetBtn, disconnectBtn, connectBtn].forEach(function (b) { b.disabled = true; });
+      setSessionNote(label + ' in progress, this can take ~30s...', false);
+
+      fetch(url, { method: 'POST' })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          setSessionNote(res.ok ? label + ' complete.'
+                                : label + ' failed: ' + (res.d.error || 'unknown'), !res.ok);
+        })
+        .catch(function (e) { setSessionNote(label + ' failed: ' + e, true); })
+        .finally(function () {
+          sessionBusy = false;
+          btn.textContent = prev;
+          [resetBtn, disconnectBtn, connectBtn].forEach(function (b) { b.disabled = false; });
+          pollHealth();
+        });
+    }
+
+    resetBtn.addEventListener('click', function () {
+      sessionAction('/api/reactor/reset', 'Reset', resetBtn);
+    });
+    disconnectBtn.addEventListener('click', function () {
+      sessionAction('/api/reactor/disconnect', 'Disconnect', disconnectBtn);
+    });
+    connectBtn.addEventListener('click', function () {
+      sessionAction('/api/reactor/connect', 'Connect', connectBtn);
+    });
+
     // ============ STATUS BAR ============
     function pollHealth() {
       fetch('/api/reactor/health')
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          document.getElementById('status-text').textContent =
-            'Status: ' + (data.reactor_connected ? 'Connected' : 'Offline') +
-            ' | Frames: ' + data.frames_processed +
-            ' | Prompt: ' + data.prompt +
-            (data.reference_image ? ' | Ref: ' + data.reference_image : '');
+          if (data.max_prompt_chars) {
+            maxPromptChars = data.max_prompt_chars;
+            updatePromptCount();
+          }
+
+          var live = !!data.reactor_connected;
+          if (!sessionBusy) {
+            disconnectBtn.style.display = live ? '' : 'none';
+            connectBtn.style.display = live ? 'none' : '';
+            resetBtn.disabled = !live;
+          }
+
+          var parts = ['Status: ' + (live ? 'Connected' : 'Offline')];
+          parts.push('Frames: ' + data.frames_processed);
+          if (data.output_fps !== undefined) {
+            parts.push('Out: ' + data.output_fps + 'fps');
+          }
+          if (data.push_fps !== undefined) {
+            parts.push('In: ' + data.push_fps + 'fps');
+          }
+          // Age of the newest frame received, NOT how far the content lags
+          // live -- that runs several seconds and this will not show it.
+          if (data.output_age_s !== null && data.output_age_s !== undefined) {
+            parts.push('Age: ' + data.output_age_s + 's');
+          }
+          if (data.reference_image) parts.push('Ref: ' + data.reference_image);
+          if (sessionNote) parts.push(sessionNote);
+
+          var el = document.getElementById('status-text');
+          el.textContent = parts.join(' | ');
+          el.style.color = sessionNoteIsError ? 'var(--danger)' : '';
         })
         .catch(function () {
-          document.getElementById('status-text').textContent = 'Status: disconnected';
+          document.getElementById('status-text').textContent = 'Status: unreachable';
         });
     }
     setInterval(pollHealth, 2000);
 
     window.addEventListener('load', function () {
+      updatePromptCount();
       pollHealth();
       updateSliderBg(roverSpeedSlider);
       updateLightBtn();
